@@ -1,0 +1,42 @@
+https://docs.openstack.org/install-guide/environment-packages-rdo.html
+
+# yum install centos-release-openstack-rocky
+When installing the Queens release, run:
+
+# yum install centos-release-openstack-queens
+When installing the Pike release, run:
+
+# yum install centos-release-openstack-pike
+
+vi /etc/glance/glance-api.conf
+swift_store_auth_version = 3  # 3213
+swift_store_auth_address = http://192.168.108.150:5000/v3  #3223
+swift_store_user = services:swift   #3232
+swift_store_key = 171bd3566d354944  #3242
+
+
+default_store=swift  #2107
+swift_store_container = glance #2921
+swift_store_create_container_on_put = true  #2991
+
+[root@controller sysconfig(keystone_admin)]# openstack compute service set --disable compute1 nova-compute
+[root@controller sysconfig(keystone_admin)]# openstack compute service list
++----+------------------+------------+----------+----------+-------+----------------------------+
+| ID | Binary           | Host       | Zone     | Status   | State | Updated At                 |
++----+------------------+------------+----------+----------+-------+----------------------------+
+|  3 | nova-conductor   | controller | internal | enabled  | up    | 2019-05-03T07:11:43.000000 |
+|  4 | nova-scheduler   | controller | internal | enabled  | up    | 2019-05-03T07:11:48.000000 |
+|  5 | nova-consoleauth | controller | internal | enabled  | up    | 2019-05-03T07:11:48.000000 |
+|  6 | nova-compute     | controller | nova     | enabled  | up    | 2019-05-03T07:11:43.000000 |
+|  7 | nova-compute     | compute1   | nova     | disabled | up    | 2019-05-03T07:11:41.000000 |
++----+------------------+------------+----------+----------+-------+----------------------------+
+[root@controller sysconfig(keystone_admin)]# openstack compute service delete 7
+[root@controller sysconfig(keystone_admin)]# openstack compute service list
++----+------------------+------------+----------+---------+-------+----------------------------+
+| ID | Binary           | Host       | Zone     | Status  | State | Updated At                 |
++----+------------------+------------+----------+---------+-------+----------------------------+
+|  3 | nova-conductor   | controller | internal | enabled | up    | 2019-05-03T07:12:13.000000 |
+|  4 | nova-scheduler   | controller | internal | enabled | up    | 2019-05-03T07:12:18.000000 |
+|  5 | nova-consoleauth | controller | internal | enabled | up    | 2019-05-03T07:12:18.000000 |
+|  6 | nova-compute     | controller | nova     | enabled | up    | 2019-05-03T07:12:13.000000 |
++----+------------------+------------+----------+---------+-------+----------------------------+

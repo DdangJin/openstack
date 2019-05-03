@@ -1,0 +1,154 @@
+
+
+#vi openstack.txt
+CONFIG_DEFAULT_PASSWORD=abc123
+CONFIG_CEILOMETER_INSTALL=n
+CONFIG_AODH_INSTALL=n
+CONFIG_HEAT_INSTALL=y
+CONFIG_KEYSTONE_ADMIN_PW=abc123
+CONFIG_NEUTRON_OVS_BRIDGE_IFACES=br-ex:ens33
+CONFIG_PROVISION_DEMO=n
+
+
+#yum install -y openstack-utils
+#openstack-status
+#openstack-service restart nova|glance|neutron|cinder
+
+#systemctl list-unit-files --all|grep openstack(nova|glance...)
+
+compute1 준비
+hostnamectl set-hostname compute1
+vi /etc/sysconfig/network-scripts/ifcfg-ens33
+
+address=192.168.30.151
+#UUID <---삭제
+
+service network restart
+
+#yum install -y wget
+#wget http://192.168.204.11/share/images/CentOS-6-x86_64-GenericCloud-20141129_01.qcow2c
+#qemu-img convert -O qcow2 CentOS-6-x86_64-GenericCloud-20141129_01.qcow2c centos6.qcow2
+
+cirros instance 접속 후(cirros/cubswin:))
+$hostname
+$ip a
+$ip r
+$lsblk
+$cat /etc/resolv.conf
+
+#ip netns exec qrouter-7d5b4d2e-26ff-45c6-9974-615e972fbb9c ssh -i /root/stack-key1.pem centos@192.168.30.15
+[centos@centos ~]$ lsblk
+NAME   MAJ:MIN RM SIZE RO TYPE MOUNTPOINT
+vda    252:0    0  10G  0 disk 
+└─vda1 252:1    0   8G  0 part /
+vdb    252:16   0   1G  0 disk 
+[centos@centos ~]$ sudo mount /dev/vdb /mnt
+[centos@centos ~]$ ls /mnt
+lost+found  passwd  profile  protocols
+
+
+http://192.168.204.11/
+mysql -uroot
+show databases;
+ use keystone
+show tables;
+select * from user;
+
+
+vi /etc/chrony.conf
+  #server 0.centos.pool.ntp.org iburst
+  #server 1.centos.pool.ntp.org iburst
+  #server 2.centos.pool.ntp.org iburst
+  #server 3.centos.pool.ntp.org iburst
+  server controller iburst
+  #allow 192.168.30.0/24
+
+[root@compute1 ~]# systemctl restart chronyd
+[root@compute1 ~]# chronyc sources
+210 Number of sources = 1
+MS Name/IP address         Stratum Poll Reach LastRx Last sample               
+===============================================================================
+^? controller                    0   7     0     -     +0ns[   +0ns] +/-    0ns
+[root@compute1 ~]# timedatectl
+      Local time: 목 2019-05-02 11:14:22 KST
+  Universal time: 목 2019-05-02 02:14:22 UTC
+        RTC time: 목 2019-05-02 02:14:22
+       Time zone: Asia/Seoul (KST, +0900)
+     NTP enabled: yes
+NTP synchronized: no
+ RTC in local TZ: no
+      DST active: n/a
+
+
+image convert
+#qemu-img convert -O vmdk cirros-0.3.5-x86_64-disk.img cirros-0.3.5-x86_64-disk.vmdk
+
+#openstack image create "cirros-vmdk" --file cirros-0.3.5-x86_64-disk.vmdk --disk-format vmdk --container-format bare --public
+
+#openstack image list
+
+cinder storage를 loop device에서 물리디스크로 교체하기
+  223  fdisk /dev/sda
+  224  partprobe /dev/sda
+  225  lsblk|more
+  226  pvcreate /dev/sda3
+  227  vgextend cinder-volumes /dev/sda3
+  228  vgs
+  229  pvs
+  230  pvmove /dev/loop1 /dev/sda3
+  231  pvs
+  232  vgreduce cinder-volumes /dev/loop1
+  233  pvs
+  234  pvremove /dev/loop1
+
+cinder create --name demo-v1 1
+cinder list
+openstack volume list
+
+
+https://docs.openstack.org/nova/rocky/install/compute-install-rdo.html#install-and-configure-components
+openstack-nova-compute start fail시
+
+vi /etc/sysconfig/iptables
+-A INPUT -s 192.168.30.151/32 -p tcp -m multiport --dports 5671,5672 -m comment --comment "001 amqp incoming amqp_192.168.30.151" -j ACCEPT
+-A INPUT -s 192.168.30.151/32 -p tcp -m multiport --dports 5671,5672 -j ACCEPT
+-A INPUT -s 192.168.30.150/32 -p tcp -m multiport --dports 5671,5672 -j ACCEPT
+
+systemctl reload iptables
+
+compute node에서
+#systemctl stop openstack-nova-compute
+#systemctl start openstack-nova-compute
+
+nova에서 Neutron 추가
+#vi /etc/sysctl.conf
+net.ipv4.conf.all.rp_filter=0
+net.ipv4.conf.default.rp_filter=0
+net.bridge.bridge-nf-call-ip6tables = 1 #default
+net.bridge.bridge-nf-call-iptables = 1  #default
+
+#modprobe br_netfilter
+#sysctl -p
+#yum install openstack-neutron openstack-neutron-ml2 openstack-neutron-openvswitch
+#scp 192.168.x.150:/etc/neutron/neutron.conf /etc/neutron
+#vi /etc/neutron/neutron.conf 
+  #connection <--주석
+#scp 192.168.x.150:/etc/neutron/plugins/ml2/ml2_conf.ini /etc/neutron/plugins/ml2
+#ln -s /etc/neutron/plugins/ml2/ml2_conf.ini /etc/neutron/plugin.ini
+#scp 192.168.x.150:/etc/neutron/plugins/ml2/openvswitch_agent.ini /etc/neutron/plugins/ml2
+vi /etc/neutron/plugins/ml2/openvswitch_agent.ini 
+         local_ip 192.168.108.151  (변경)
+
+#systemctl enable openvswitch
+#systemctl start openvswitch
+#systemctl start neutron-openvswitch-agent
+#systemctl enable neutron-openvswitch-agent
+Controller#openstack network agent list
+
+
+net.ipv4.conf.default.rp_filter = 0
+net.ipv4.conf.all.rp_filter = 0
+net.bridge.bridge-nf-call-ip6tables = 1 #default
+net.bridge.bridge-nf-call-iptables = 1  #default
+
+
