@@ -1,0 +1,11 @@
+share/
+
+*.img
+*.iso
+*.vmdk
+openstack/cirros
+openstack/controller
+openstack/nova
+*.exe
+*.pem
+
